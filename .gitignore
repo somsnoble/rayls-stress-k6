@@ -1,0 +1,5 @@
+results/*
+*.log
+*.txt  # unless you commit specific examples
+.DS_Store
+.vscode/

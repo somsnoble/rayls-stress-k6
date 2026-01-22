@@ -2,7 +2,7 @@
 
 Simple, configurable load/stress testing for the Rayls Testnet public RPC (`https://devnet-rpc.rayls.com` – Chain ID 123123).
 
-**Warning**: Public RPCs have rate limits + bot protection (likely Cloudflare). High concurrency from one IP will trigger blocks/challenges (HTML responses, 429s). Use responsibly – do not attempt to DDoS or overload testnets.
+**Warning**: Public RPCs have rate limits + bot protection (likely Cloudflare). High concurrency from one IP will trigger blocks/challenges (HTML responses, 429s). Use responsibly and do not attempt to DDoS or overload testnets.
 
 ## Requirements
 

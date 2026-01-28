@@ -1,52 +1,72 @@
 # Rayls Devnet RPC Stress Test with k6
 
-Simple, configurable load/stress testing for the Rayls Testnet public RPC (`https://devnet-rpc.rayls.com` – Chain ID 123123).
+This repository contains a k6 script to load-test the public Rayls Devnet RPC (`https://devnet-rpc.rayls.com`).
 
-**Warning**: Public RPCs have rate limits + bot protection (likely Cloudflare). High concurrency from one IP will trigger blocks/challenges (HTML responses, 429s). Use responsibly – do not attempt to DDoS or overload testnets.
+**Important – January 2026 status**  
+The RPC is behind **Cloudflare** and currently returns **HTTP 522** ("Connection timed out") on almost every request — even with 1 VU and long sleep.  
+This is most likely a **temporary IP block** from Cloudflare caused by earlier aggressive runs.
+
+**Until resolved (wait 2–24 hours or change IP/network), you will see 522 errors.**  
+The script itself is correct; the issue is external.
+
+## Features
+- One wallet per VU → no nonce collisions
+- Mixed light read calls (`eth_chainId`, `eth_blockNumber`, `eth_getBalance`)
+- Environment variables for wallets (no keys hardcoded)
+- Conservative defaults to avoid worsening blocks
+
+**Writes are disabled** (invalid RLP in plain k6 + high block risk).
 
 ## Requirements
+- Windows + PowerShell
+- k6 installed  
+  → https://k6.io/docs/get-started/installation/ (MSI installer recommended)  
+  → Verify: `k6 version`
 
-- Install [k6](https://k6.io/docs/getting-started/installation/) (e.g. `sudo snap install k6` on Linux/WSL, brew on macOS, etc.)
+## Project Structure
+rayls-stress-k6/
+└── scripts/
+└── stress-test.js     ← the main script (1 VU safe mode)
+text## Setup & Run – Step by Step
 
-## How to Use (One Script – Modify to Change Behavior)
+### 1. Go to the scripts folder
+```powershell
+cd C:\Users\user\Documents\rayls-stress-k6\scripts
 
-All configuration is at the top of `scripts/stress-test.js`. Edit these lines and rerun.
+Copy-paste this entire block and run it:
+PowerShellk6 run `
+  --env VU_1_PK=0x32dad97ae0dcdecf3269a303ca4803d9c3fb542fcfa5a2dfd16e7573ef28461b `
+  --env VU_1_ADDR=0x85F3De3e118c195423dc3DD17134D5068Bae6B81 `
+  stress-test.js
+What to expect right now:
 
-1. **Safe / Basic Test** (low load, sustained, 100% success likely)
-   ```javascript
-   vus: 5,
-   duration: '60s',
-   stages: [],  // comment out or remove stages
-   const USE_MIXED_METHODS = false;
-   const SLEEP_PER_ITERATION = 1;  // or higher
+Most likely: Status 522 after ~20 seconds + JSON parse error
+If unblocked: Status 200 + valid JSON responses
 
-   Moderate Test (balanced, some stress)JavaScriptvus: 20,
-duration: '90s',
-stages: [],  // constant load
-const USE_MIXED_METHODS = true;
-const SLEEP_PER_ITERATION = 0.3;
-Aggressive Ramp-Up Stress (push limits – expect failures)JavaScriptstages: [
-  { duration: '30s', target: 20 },
-  { duration: '60s', target: 100 },
-  { duration: '30s', target: 0 },
-],
-// Remove or comment out vus/duration if using stages
-const USE_MIXED_METHODS = true;
-const SLEEP_PER_ITERATION = 0;  // max speed – high chance of blocks
+After confirming 1 VU gets 200 OK responses, you can add more VUs one by one.
+Example: Run with 3 VUs
+PowerShellk6 run `
+  --env VU_1_PK=0x32...
+  --env VU_1_ADDR=0x85F3De3e118c195423dc3DD17134D5068Bae6B81 `
+  --env VU_2_PK=0xe3...
+  --env VU_2_ADDR=0xa3692E05CFf8d3Cb417815A262B049DAd5BdfFe5 `
+  --env VU_3_PK=0xb...
+  --env VU_3_ADDR=0xa1bAC04D3A6BCEf032c3DED83db59a9C40785D82 `
+  stress-test.js
 
-Run the test:
-# From project root
-k6 run scripts/stress-test.js
+  Scaling tips:
 
-# Save output for analysis
-k6 run scripts/stress-test.js > results/my-run-$(date +%Y-%m-%d).txt
+Start with 1 VU + 5–10s sleep
+Only reduce sleep / add VUs after getting consistent 200 OK
+Fund wallets with native tokens first (via faucet or transfer)
 
-## Running & Saving Results
+Troubleshooting 522 Errors
 
-k6 prints results to the terminal by default. To save them to a file, use redirection (`>`):
+Every request = 522 after ~20s → IP blocked by Cloudflare
+→ Wait 2–24 hours
+→ Try mobile hotspot / VPN (ProtonVPN free, Windscribe free)
+→ Test first with curl:PowerShellcurl -X POST https://devnet-rpc.rayls.com -H "Content-Type: application/json" --data "{\"jsonrpc\":\"2.0\",\"method\":\"eth_chainId\",\"params\":[],\"id\":1}"
 
-You add > filename.txt yourself every time:Bash# Saves today's run with date in filename
-k6 run scripts/stress-test.js > results/aggressive-$(date +%Y-%m-%d-%H%M).txt
+Good response example:
 
-# Or fixed name (overwrites each time)
-k6 run scripts/stress-test.js > results/example-aggressive-run.txt
+JSON{"jsonrpc":"2.0","id":1,"result":"0x1e0f3"}
